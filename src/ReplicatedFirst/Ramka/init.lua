@@ -37,18 +37,20 @@ local function DoesTaskExist(taskName: string): boolean
 	return task ~= nil
 end
 
-local function GetHook(Name: string,expectedType: string)
-    if hooks[Name] == nil then
+local function GetHook(Name: string, expectedType: string)
+    local RemoteSignals = game.ReplicatedStorage.RemoteSignals
+
+    if RemoteSignals:FindFirstChild(Name) == nil then
         error(Name.. " Hook does not exists.")
         return false, nil
     end
 
-    if hooks[Name].ClassName ~= expectedType then
-        error(string.format("%s is a %s not a %s",Name,hooks[Name].ClassName,expectedType))
+    if RemoteSignals:FindFirstChild(Name).ClassName ~= expectedType then
+        error(string.format("%s is a %s not a %s",Name,RemoteSignals:FindFirstChild(Name).ClassName,expectedType))
         return false, nil
     end
 
-    return true, hooks[Name]
+    return true, RemoteSignals:FindFirstChild(Name)
 end
 
 local Ramka = {}
@@ -173,30 +175,30 @@ RamkaScheduler = require(script.ramkaScheduler).new(true)
     end
 
     function Ramka.HookAllClients(Name: string,...)
-        local verifiedHook, Hook: RemoteEvent = GetHook(Name)
+        local verifiedHook, Hook: RemoteEvent = GetHook(Name, "RemoteEvent")
         if verifiedHook then
             Hook:FireAllClients(...)
         end
     end
 
     function Ramka.HookServer(Name: string,...)
-        local verifiedHook, Hook: RemoteEvent = GetHook(Name)
+        local verifiedHook, Hook: RemoteEvent = GetHook(Name, "RemoteEvent")
         if verifiedHook then
             Hook:FireServer(...)
         end
     end
 
     function Ramka.HookInvokeClient(Name: string,Player: Player,...)
-        local verifiedHook, Hook: RemoteFunction = GetHook(Name)
+        local verifiedHook, Hook: RemoteFunction = GetHook(Name, "RemoteFunction")
         if verifiedHook then
-            Hook:InvokeClient(Player,...)
+            return Hook:InvokeClient(Player,...)
         end
     end
 
     function Ramka.HookInvokeServer(Name: string,...)
-        local verifiedHook, Hook: RemoteFunction = GetHook(Name)
+        local verifiedHook, Hook: RemoteFunction = GetHook(Name, "RemoteFunction")
         if verifiedHook then
-            Hook:InvokeServer(...)
+            return Hook:InvokeServer(...)
         end
     end
 

@@ -1,0 +1,35 @@
+{
+    "name": "Game_Name",
+    "tree": {
+      "$className": "DataModel",
+  
+      "ReplicatedFirst": {
+        "Api": {
+          "$path": "src/ReplicatedFirst/Api"
+        },
+        "Ramka": {
+          "$path": "src/ReplicatedFirst/Ramka"
+        }
+      },
+  
+      "ReplicatedStorage": {
+        "Content": {
+          "$path": "src/Game/Content"
+        }
+      },
+  
+      "ServerScriptService": {
+        "Server": {
+          "$path": "src/Game/Server"
+        }
+      },
+  
+      "StarterPlayer": {
+        "StarterPlayerScripts": {
+          "Client": {
+            "$path": "src/Game/Client"
+          }
+        }
+      } 
+    }
+  }
