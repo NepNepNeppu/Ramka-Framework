@@ -1,11 +1,8 @@
 local Ramka = require(game.ReplicatedFirst.Ramka)
 
-local Character = require(Ramka.GetService("CharacterService").Character)
-local RamkaCharacter = Character.new(game.Players.LocalPlayer)
-RamkaCharacter:Observe()
-
-Ramka.SetComponent(script.Components)
-Ramka.SetComponent(RamkaCharacter,"Character")
+local CharacterService = require(Ramka.GetServices().CharacterService).new(game.Players.LocalPlayer)
+Ramka.CreateCite(script.Components)
+Ramka.CreateCite(CharacterService,"CharacterService")
 
 Ramka.AddTasks(script.Tasks,"Handler$")
 

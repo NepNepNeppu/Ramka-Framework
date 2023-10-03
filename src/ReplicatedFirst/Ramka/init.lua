@@ -1,12 +1,12 @@
+local RunService = game:GetService("RunService")
 local Promise = require(game.ReplicatedFirst.Api.Class.Promise)
-local BasePartService = require(game.ReplicatedFirst.Api.Services.BasePartService)
 
 local started = false
 local startedComplete = false
 local onStartedComplete = Instance.new("BindableEvent")
 
 local tasks = {}
-local components = {}
+local cites = {}
 local hooks = {}
 
 type func = typeof(function() end)
@@ -53,8 +53,29 @@ local function GetHook(Name: string, expectedType: string)
     return true, RemoteSignals:FindFirstChild(Name)
 end
 
+local function Create(instance: string, name: string, parent: Instance)
+    local Item = Instance.new(instance)
+    Item.Name = name
+    Item.Parent = parent
+    return Item
+end
+
+local function addModule(addedTasks, v)
+    local success, result = pcall(function()
+        return require(v)
+    end)
+
+    if success then
+        table.insert(addedTasks, result)
+    else
+        warn(v.Name..": "..result)
+    end
+end
+
 local Ramka = {}
 RamkaScheduler = require(script.ramkaScheduler).new(true)
+
+--//Adding Tasks
 
     --[=[
         Match is a rule that the Module(s) can follow
@@ -68,7 +89,8 @@ RamkaScheduler = require(script.ramkaScheduler).new(true)
             if not v:IsA("ModuleScript") and (Match == nil or v.Name:match(Match)) then
                 continue
             end
-            table.insert(addedTasks, require(v))
+             
+            addModule(addedTasks, v)
         end
         return addedTasks
     end
@@ -85,10 +107,13 @@ RamkaScheduler = require(script.ramkaScheduler).new(true)
             if not v:IsA("ModuleScript") and (Match == nil or v.Name:match(Match)) then
                 continue
             end
-            table.insert(addedTasks, require(v))
+
+            addModule(addedTasks, v)
         end
         return addedTasks
     end
+
+--//Creating & Retrieving Tasks
 
     --[=[
         Creates a new Tasks.
@@ -124,16 +149,22 @@ RamkaScheduler = require(script.ramkaScheduler).new(true)
     --[=[
         Gets the task by name. Throws an error if the task
         is not found.
+
+        :::caution
+        GetTask must be called in RamkaStart or after RamkaInit
+        :::
     ]=]
     function Ramka.GetTask(taskName: string): Task
-        local task = tasks[taskName]
-        if task then
-            return task
+        local currentTask = tasks[taskName]
+        if currentTask then
+            return currentTask
         end
         assert(started, "Cannot call GetTask until Ramka has been started")
         assert(type(taskName) == "string", `TaskName must be a string; got {type(taskName)}`)
         error(`Could not find task "{taskName}". Check to verify a task with this name exists.`, 2)
     end
+
+--//Scheduler
 
     --[=[
         Creates a new Schedule that will begin running as early as RamkaStart.
@@ -152,19 +183,46 @@ RamkaScheduler = require(script.ramkaScheduler).new(true)
         return RamkaScheduler:Arrange(scheduleDef.Step,scheduleDef.Update,scheduleDef.Name)
     end
 
-    function Ramka.GetApi()
+--//Get Internal API
+
+    function Ramka.GetApiArray()
         return {
             Class = game.ReplicatedFirst.Api.Class,
             Service = game.ReplicatedFirst.Api.Services,
         }
     end
 
-    function Ramka.GetService(name: string)
-        return Ramka.GetApi().Service[name]
+    function Ramka.GetServices()
+        return Ramka.GetApiArray().Service
     end
 
-    function Ramka.GetClass(name: string)
-        return Ramka.GetApi().Class[name]
+    function Ramka.GetClasses()
+        return Ramka.GetApiArray().Class
+    end
+
+--//Networking
+
+    --[=[
+    Creates a new Hook.
+
+    :::caution
+    Hook must be created on the server.
+    :::
+    ]=]
+    function Ramka.CreateHook(Name: string,type: "RemoteEvent" | "RemoteFunction"?)
+        if game:GetService("RunService"):IsClient() then
+            error("Unable to create hook '"..Name.."'. 'CreateHook' must be called on the server.")
+            return
+        end
+
+        if hooks[Name] then
+            error(Name.. " Hook already exists.")
+            return
+        else
+            local RemoteSignals = game.ReplicatedStorage.RemoteSignals
+            hooks[Name] = Create(type or "RemoteFunction",Name,RemoteSignals)
+            return hooks[Name]
+        end
     end
 
     function Ramka.HookClient(Name: string,Player: Player,...)
@@ -202,45 +260,21 @@ RamkaScheduler = require(script.ramkaScheduler).new(true)
         end
     end
 
-    --[=[
-    Creates a new Hook.
+--//Cites
 
-    :::caution
-    Hook must be created on the server.
-    :::
-    ]=]
-    function Ramka.CreateHook(Name: string,type: "RemoteEvent" | "RemoteFunction"?)
-        if game:GetService("RunService"):IsClient() then
-            error("Unable to create hook '"..Name.."'. 'CreateHook' must be called on the server.")
-            return
-        end
-
-        if hooks[Name] then
-            error(Name.. " Hook already exists.")
-            return
-        else
-            local RemoteSignals = game.ReplicatedStorage.RemoteSignals
-            hooks[Name] = BasePartService.Create(type or "RemoteFunction",Name,RemoteSignals)
-            return hooks[Name]
-        end
+    function Ramka.CreateCite(key,name: string?)
+        cites[name or key.Name] = key
     end
 
-    function Ramka.SetComponent(key,name: string?)
-        components[name or key.Name] = key
+    function Ramka.GetCite(name: string?)
+        return cites[name]
     end
 
-    function Ramka.GetComponent(name: string?)
-        return components[name]
+    function Ramka.GetCitations()
+        return cites
     end
 
-    function Ramka.GetComponents()
-        return components
-    end
-
-    -- Read only
-    function Ramka.GetTasks()
-        return table.freeze(table.clone(tasks))
-    end
+--//System
 
     --[=[
         @return Promise
@@ -259,7 +293,7 @@ RamkaScheduler = require(script.ramkaScheduler).new(true)
         started = true
 
         if game:GetService("RunService"):IsServer() then
-            BasePartService.Create("Folder","RemoteSignals",game.ReplicatedStorage)
+            Create("Folder","RemoteSignals",game.ReplicatedStorage)
         end
     
         return Promise.new(function(resolve)

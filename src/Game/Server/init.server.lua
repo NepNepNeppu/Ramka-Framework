@@ -1,5 +1,5 @@
 local Ramka = require(game.ReplicatedFirst.Ramka)
-Ramka.SetComponent(script.Components)
+Ramka.CreateCite(script.Components)
 Ramka.AddTasks(script.Tasks,"Handler$")
 
 Ramka.Start():andThen(function()

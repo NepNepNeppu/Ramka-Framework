@@ -1,5 +1,5 @@
 local Ramka = require(game.ReplicatedFirst.Ramka)
-local Signal = require(Ramka.GetClass("Signal"))
+local Signal = require(Ramka.GetClasses().Signal)
 
 local Character = {}
 Character.__index = Character
