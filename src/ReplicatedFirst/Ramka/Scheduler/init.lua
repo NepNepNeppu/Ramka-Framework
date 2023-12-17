@@ -89,7 +89,7 @@ Scheduler.__index = Scheduler
                         local deltaTime = if pipelineData.preservePipeline then pipelineData.timeCapsule.store[v].delta else deltaTime
 
                         for name, details in pipelineData.executors do -- Added Functions
-                            if details.framestep == v then -- Make sure function is running in the right framestep
+                            if details.framestep == v and details.isActive then -- Make sure function is running in the right framestep
                                 details.frameManager.elapsed += deltaTime
                                 details.frameManager.frames += deltaTime
 

@@ -29,9 +29,18 @@ end)
         function execution.Cancel()
             self.scheduler.pipelines[params.pipeline].executors[params.name] = nil
         end
+
+        function execution.Pause()
+            execution.isActive = false
+        end
+
+        function execution.Begin()
+            execution.isActive = true
+        end
         
         execution.executor = executor
-        execution.framestep = framestep -- not goal framerate, runservice function
+        execution.framestep = framestep -- not goal framerate, runservice string function
+        execution.isActive = true 
         execution.frameManager = {elapsed = 0, frames = 0}
         return execution
     end
