@@ -67,20 +67,42 @@ Scheduler.__index = Scheduler
                 local deltaTime = if v == "Stepped" then deltaTime else time
                 
                 for pipelineName, pipelineData in self.pipelines do
-                    if pipelineData.working then
-                        if pipelineData.timeAccumulator[v] == nil and pipelineData.preservePipeline then                            
-                            pipelineData.timeAccumulator[v] = 0
-                        end
-                        
-                        if pipelineData.preservePipeline then
-                            pipelineData.timeAccumulator[v] += deltaTime
+                    if pipelineData.isActive then
+                        do -- If a timeline is frozen, preserve elapsed at the time it was frozen       
+                            if pipelineData.preservePipeline then
+                                if pipelineData.timeCapsule.store[v] == nil then
+                                    pipelineData.timeCapsule.store[v] = {
+                                        elapsed = 0,
+                                        delta = 0,
+                                    }
+                                end
+
+                                pipelineData.timeCapsule.store[v].delta = (deltaTime * pipelineData.timeCapsule.scalar)
+                                pipelineData.timeCapsule.store[v].elapsed += (deltaTime * pipelineData.timeCapsule.scalar)
+                            else
+                                pipelineData.timeCapsule.store = {}
+                            end
                         end
 
-                        local timeline = if pipelineData.preservePipeline then pipelineData.timeAccumulator[v] else elaspedTime
+                        -- each function already has their own elaspedTime stored
+                        -- local elaspedTime = if pipelineData.preservePipeline then pipelineData.timeCapsule.store[v].elapsed else elaspedTime
+                        local deltaTime = if pipelineData.preservePipeline then pipelineData.timeCapsule.store[v].delta else deltaTime
 
-                        for name, details in pipelineData.executors do
-                            if details.framestep == v then                     
-                                details.executor(deltaTime * pipelineData.timeDisplacement, timeline * pipelineData.timeDisplacement, details)
+                        for name, details in pipelineData.executors do -- Added Functions
+                            if details.framestep == v then -- Make sure function is running in the right framestep
+                                details.frameManager.elapsed += deltaTime
+                                details.frameManager.frames += deltaTime
+
+                                if details.framerate == 60 then
+                                    details.executor(details.frameManager.elapsed, details.frameManager.frames, details)
+                                    details.frameManager.elapsed = 0
+                                else -- precise framerate management
+                                    local difference = details.frameManager.elapsed - (1/details.framerate)
+                                    if difference >= -1/100 then
+                                        details.executor(details.frameManager.elapsed, details.frameManager.frames, details)
+                                        details.frameManager.elapsed = 0
+                                    end
+                                end
                             end
                         end                        
                     end
@@ -91,18 +113,15 @@ Scheduler.__index = Scheduler
 
 -- Scheduling
     function Scheduler:Construct(params: line)
-        -- self:assert(params.name == nil or type(params.name) == "string","name cannot be nil and must be a string")
-        local params do
-            if type(params) ~= "table" then
-                params = {}
-            end
+        if type(params) ~= "table" then
+            params = {}
         end
 
-        params.framerate = params.framerate or 60
-        params.pipeline = params.pipeline or "_default"
-        params.name = params.name or HttpService:GenerateGUID(false)
-
-        return Constructor.new(self, params)
+        return Constructor.new(self, {
+            framerate = params.framerate or 60,
+            pipeline = params.pipeline or "_default",
+            name = params.name or HttpService:GenerateGUID(false)
+        })
     end
 
 -- Pipeline management
@@ -113,18 +132,16 @@ Scheduler.__index = Scheduler
         end
     end
 
-    function Scheduler:_createPipeline(pipelineName: string, isAsync: boolean?, preservePipeline: boolean?)
+    function Scheduler:_createPipeline(pipelineName: string, preservePipeline: boolean?)
         self:assert(self:_isPipeline(pipelineName) == nil,pipelineName.." is already a pre-existing pipeline")
 
         self.pipelines[pipelineName] = {
-            working = true,
-            isAsync = isAsync or false,
+            isActive = true,
             preservePipeline = if preservePipeline then preservePipeline else self.preservePipeline,
-            timeAccumulator = {},
-
-            timeDisplacement = 1,
-            timeElapsed = 0,
-
+            timeCapsule = {
+                store = {},
+                scalar = 1,
+            },
             executors = {}
         }
     end
@@ -157,20 +174,20 @@ Scheduler.__index = Scheduler
     function Scheduler:FreezePipeline(pipelineName: string)
         self:assert(self:_isPipeline(pipelineName),pipelineName.." does not exist")
 
-        self.pipelines[pipelineName].working = false
+        self.pipelines[pipelineName].isActive = false
     end
     
     function Scheduler:UnfreezePipeline(pipelineName: string)
         self:assert(self:_isPipeline(pipelineName),pipelineName.." does not exist")
         
-        self.pipelines[pipelineName].working = true
+        self.pipelines[pipelineName].isActive = true
     end
     
     function Scheduler:SetPipelineSpeed(pipelineName: string, number: number)
         self:assert(self:_isPipeline(pipelineName),pipelineName.." does not exist")
-        self:assert(type(number) == "number","number must be a number") -- how else do I describe this
+        self:assert(typeof(number) == "number",("bad argument 2 (number expected, got %s)"):format(typeof(number)))
 
-        self.pipelines[pipelineName].timeDisplacement = true
+        self.pipelines[pipelineName].timeCapsule.scalar = number
     end
 
 return Scheduler

@@ -9,6 +9,8 @@ local c3 = c1 + 1
 local c4 = (2 * PI) / 3
 local c5 = (2 * PI) / 4.5
 
+local clamp = math.clamp
+
 local bounceOut = function(x)
 	local n1 = 7.5625
 	local d1 = 2.75
@@ -25,6 +27,46 @@ local bounceOut = function(x)
 end
 
 local math = {}
+
+math.vector = {
+	-- computeSmallestVector(Vec3(1,1,1), Vec3(1,-1,3)) -> Vec3(1,-1,1)
+	computeSmallestVector = function(vec1, vec2)
+		local newVector = Vector3.new(vec1.X, vec1.Y, vec1.Z)
+
+		if vec2.X < vec1.X then
+			newVector.X = vec2.X
+		end
+
+		if vec2.Y < vec1.Y then
+			newVector.Y = vec2.Y
+		end
+
+		if vec2.Z < vec1.Z then
+			newVector.Z = vec2.Z
+		end
+
+		return newVector
+	end,
+
+	-- computeLargestVector(Vec3(1,1,1), Vec3(1,-1,3)) -> Vec3(1,1,3)
+	computeLargestVector = function(vec1, vec2)
+		local newVector = Vector3.new(vec1.X, vec1.Y, vec1.Z)
+
+		if vec2.X > vec1.X then
+			newVector.X = vec2.X
+		end
+
+		if vec2.Y > vec1.Y then
+			newVector.Y = vec2.Y
+		end
+
+		if vec2.Z > vec1.Z then
+			newVector.Z = vec2.Z
+		end
+
+		return newVector
+	end
+}
 
 math.compute = {
     -- f(1) = 0, f(0) = z
@@ -83,6 +125,19 @@ math.compute = {
         end
         return a:Lerp(b,t)
     end,
+
+	calculateSlopeValue = function(value: number, point1: Vector2, point2: Vector2)
+		local slope = (point2.Y - point1.Y) / (point2.X - point1.X)
+		local y_intercept = point1.Y - slope * point1.X
+		return slope * value + y_intercept
+	end,
+
+	scaleValue = function(value, minIn, maxIn, minOut, maxOut)
+		value = clamp(value, minIn, maxIn)
+		local scaledValue = (value - minIn) / (maxIn - minIn) * (maxOut - minOut) + minOut
+		
+		return clamp(scaledValue, minOut, maxOut) 
+	end
 }
 
 math.rotations = {

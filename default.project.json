@@ -12,12 +12,6 @@
         }
       },
   
-      "ReplicatedStorage": {
-        "Content": {
-          "$path": "src/Game/Content"
-        }
-      },
-  
       "ServerScriptService": {
         "Server": {
           "$path": "src/Game/Server"

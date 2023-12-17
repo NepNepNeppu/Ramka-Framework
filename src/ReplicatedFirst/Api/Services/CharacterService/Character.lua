@@ -1,5 +1,5 @@
 local Ramka = require(game.ReplicatedFirst.Ramka)
-local Signal = require(Ramka.GetClasses().Signal)
+local Signal = require(Ramka.Class.Signal)
 
 local Character = {}
 Character.__index = Character
@@ -43,12 +43,12 @@ Character.__index = Character
 
     function Character:GetHumanoid()
         if not self:Is() then self:Wait() end
-        return self.Character.Humanoid
+        return self.Character:WaitForChild("Humanoid")
     end
 
     function Character:GetHumanoidRootPart()
         if not self:Is() then self:Wait() end
-        return self.Character.HumanoidRootPart
+        return self.Character:WaitForChild("HumanoidRootPart")
     end
 
     function Character:Destroy()

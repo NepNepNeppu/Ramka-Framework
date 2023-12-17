@@ -21,11 +21,11 @@
                     }
                 }
 ]] 
-local Spec = require(game.ReplicatedFirst.Spec)
-local RemoteService = Spec:GetService("RemoteService")
+local Ramka = require(game.ReplicatedFirst.Ramka)
+local RemoteService = require(Ramka.Services.RemoteService)
 
 local BadgeService = game:GetService("BadgeService")
-local Bindable = RemoteService.Get("BadgeService")
+local Bindable = RemoteService:RemoteFunction("BadgeService")
 
 local badgeService = {}
 

@@ -3,8 +3,8 @@
 -- December 23, 2021
 
 local Ramka = require(game.ReplicatedFirst.Ramka)
-local Trove = require(Ramka.GetClasses().Trove)
-local Signal = require(Ramka.GetClasses().Signal)
+local Trove = require(Ramka.Class.Trove)
+local Signal = require(Ramka.Class.Signal)
 
 local UserInputService = game:GetService("UserInputService")
 local HapticService = game:GetService("HapticService")

@@ -1,5 +1,5 @@
 local Ramka = require(game.ReplicatedFirst.Ramka)
-local Promise = require(Ramka.GetClasses().Promise)
+local Promise = require(Ramka.Class.Promise)
 
 local WaitFor = {}
 WaitFor.Error = {
@@ -26,7 +26,7 @@ local function getObjectData(object)
     end
 end
 
-local BasePartService = {}
+local InstanceService = {}
 
     --[=[
         @return Promise<Instance>
@@ -38,7 +38,7 @@ local BasePartService = {}
         end):catch(warn)
         ```
     ]=]
-    BasePartService.Child = function(parent: Instance, childName: string, timeout: number?)
+    InstanceService.Child = function(parent: Instance, childName: string, timeout: number?)
         local child = parent:FindFirstChild(childName)
         if child then
             return Promise.resolve(child)
@@ -63,7 +63,7 @@ local BasePartService = {}
         end)
         ```
     ]=]
-    BasePartService.Descendant = function(parent: Instance, descendantName: string, timeout: number?)
+    InstanceService.Descendant = function(parent: Instance, descendantName: string, timeout: number?)
         local descendant = parent:FindFirstChild(descendantName, true)
         if descendant then
             return Promise.resolve(descendant)
@@ -81,26 +81,24 @@ local BasePartService = {}
         Wait for a child to exist within a given parent based on a an orderd list name.
 
         ```lua
-        WaitFor.String(parent, "SomeObject"):andThen(function(someObject)
+        WaitFor.String(parent, "SomeObject//Child"):andThen(function(someObject)
             print(someObject, "now exists")
         end):catch(warn)
         ```
 
-        :::note
-        colons signifiy peroids if an instance encorperates a peroid
-        ex: item name = "the.object"
-            "the:object"
-        :::
+        :::caution
+        names are separated by //
+        ex: part//child//descendant
     ]=]
-    BasePartService.String = function(globalParent: Instance,extendedName : string, timeout: number?)
-        local Format = extendedName:split(".")
+    InstanceService.String = function(globalParent: Instance,extendedName : string, timeout: number?)
+        local Format = extendedName:split('//')
         local finalFunc = nil
 
         local function diveSelf(parent,index)
-            local data = string.gsub(Format[index],":",".")
-            WaitFor.Child(parent,data,timeout):andThen(function(someObject)
+            local data = Format[index] --string.gsub(Format[index],":",".")
+            InstanceService.Child(parent,data,timeout):andThen(function(someObject)
                 if index == #Format then
-                    finalFunc = WaitFor.Child(parent,data,timeout)
+                    finalFunc = InstanceService.Child(parent,data,timeout)
                 else
                     diveSelf(someObject,index + 1)
                 end
@@ -112,7 +110,7 @@ local BasePartService = {}
         return finalFunc
     end
 
-    BasePartService.hasProperty = function(basePart: BasePart, property: string)
+    InstanceService.hasProperty = function(basePart: BasePart, property: string)
         local success, result = pcall(function()
             return basePart[property]
         end)
@@ -120,7 +118,7 @@ local BasePartService = {}
     end
 
     -- Can also read into folders
-    BasePartService.GetAssemblyMass = function(basePart: BasePart)
+    InstanceService.GetAssemblyMass = function(basePart: BasePart)
         local mass = 0
 
         for _,basepart in basePart:GetDescendants() do
@@ -132,7 +130,18 @@ local BasePartService = {}
         return mass
     end
 
-    BasePartService.CancelAssemblyVelocity = function(basePart: BasePart)
+    InstanceService.FormConnectionLink = function(instance: BasePart, connections)
+        local function clearConnections()
+            for i,v in connections do
+                v:Disconnect()
+            end
+        end
+
+        instance.Destroying:Once(clearConnections)
+        return clearConnections
+    end
+
+    InstanceService.CancelAssemblyVelocity = function(basePart: BasePart)
         for _,basepart in basePart:GetDescendants() do
             if basepart:IsA("BasePart") then
                 basepart.AssemblyLinearVelocity = Vector3.new(0,0,0)
@@ -141,19 +150,19 @@ local BasePartService = {}
         end
     end
 
-    BasePartService.RemoveAssemblyMass = function(basePart: BasePart)
+    InstanceService.RemoveAssemblyMass = function(basePart: BasePart)
         basePart.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
         basePart.Massless = true
     end
 
-    BasePartService.IsInstance = function(instance: string)
+    InstanceService.IsInstance = function(instance: string)
         local success = pcall(function()
             Instance.new(instance):Destroy()
         end)
         return success
     end
 
-    BasePartService.GetListedDescendants = function(Parent: BasePart, keyName: string)
+    InstanceService.GetListedDescendants = function(Parent: BasePart, keyName: string)
         local listOfItems = {}
         for _,descendant in Parent:GetDescendants() do
             if descendant.Name == keyName then
@@ -164,34 +173,72 @@ local BasePartService = {}
     end
 
     -- returns CFrame
-    BasePartService.GetCFrame = function(basePart: BasePart)
+    InstanceService.GetCFrame = function(basePart: BasePart)
         local cframe,size = getObjectData(basePart)
         return cframe
     end
 
     -- returns Vector3
-    BasePartService.GetSize = function(basePart: BasePart)
+    InstanceService.GetSize = function(basePart: BasePart)
         local cframe,size = getObjectData(basePart)
         return size
     end
 
     -- returns CFrame, Vector3
-    BasePartService.GetObjectTranslations = function(basePart: BasePart)
+    InstanceService.GetObjectTranslations = function(basePart: BasePart)
         return getObjectData(basePart)
     end
 
-    BasePartService.Create = function(instance: string, name: string, parent: Instance)
+    InstanceService.Create = function(instance: string, name: string, parent: Instance)
         local Item = Instance.new(instance)
         Item.Name = name
         Item.Parent = parent
         return Item
     end
 
-    BasePartService.OrderByName = function(tbl: table)
+    InstanceService.OrderByName = function(tbl: table)
         table.sort(tbl, function(a,b)
             return a.Name < b.Name
         end)
         return tbl
     end
 
-return BasePartService
+    -- a list of instances
+    InstanceService.GetBoundingBox = function(models: {[number]: Model}): (CFrame,Vector3)        
+        local orientation: CFrame = CFrame.identity
+    
+        local inf: number = math.huge
+        local negInf: number = -inf
+    
+        local minx, miny, minz = inf, inf, inf
+        local maxx, maxy, maxz = negInf, negInf, negInf
+    
+        local function adjust(part: Model): ()
+            local size: Vector3 = part:GetExtentsSize()
+            local sx, sy, sz = size.X, size.Y, size.Z
+    
+            local x, y, z, R00, R01, R02, R10, R11, R12, R20, R21, R22 = orientation:ToObjectSpace(part:GetPivot()):GetComponents()
+            local wsx = 0.5 * (math.abs(R00) * sx + math.abs(R01) * sy + math.abs(R02) * sz)
+            local wsy = 0.5 * (math.abs(R10) * sx + math.abs(R11) * sy + math.abs(R12) * sz)
+            local wsz = 0.5 * (math.abs(R20) * sx + math.abs(R21) * sy + math.abs(R22) * sz)
+    
+            minx = if minx > (x - wsx) then x - wsx else minx
+            miny = if miny > (y - wsy) then y - wsy else miny
+            minz = if minz > (z - wsz) then z - wsz else minz
+            
+            maxx = if maxx < (x + wsx) then x + wsx else maxx
+            maxy = if maxy < (y + wsy) then y + wsy else maxy
+            maxz = if maxz < (z + wsz) then z + wsz else maxz
+        end
+        
+        for _, descendant: Instance in models do
+            if descendant:IsA("Model") then 
+                adjust(descendant)
+            end
+        end
+    
+        local omin, omax = Vector3.new(minx, miny, minz), Vector3.new(maxx, maxy, maxz)
+        return orientation + orientation:PointToWorldSpace((omax + omin) * 0.5), (omax - omin)
+    end
+
+return InstanceService

@@ -73,6 +73,7 @@ type PreferredInput = {
 local PreferredInput: PreferredInput
 
 local subscribers = {}
+local viewSubscribers = {}
 
 PreferredInput = {
 
@@ -92,6 +93,23 @@ PreferredInput = {
 			end
 		end
 	end,
+
+	ObserveViewport = function(handler: (x: number, y: number) -> ()): () -> ()
+		if table.find(viewSubscribers, handler) then
+			error("function already subscribed", 2)
+		end
+		local Size = game.Workspace.CurrentCamera.ViewportSize
+		
+		table.insert(viewSubscribers, handler)
+		task.spawn(handler, Size.X, Size.Y)
+		return function()
+			local index = table.find(viewSubscribers, handler)
+			if index then
+				local n = #viewSubscribers
+				viewSubscribers[index], viewSubscribers[n] = viewSubscribers[n], nil
+			end
+		end
+	end
 }
 
 local function SetPreferred(preferred: InputType)
@@ -101,6 +119,13 @@ local function SetPreferred(preferred: InputType)
 	PreferredInput.Current = preferred
 	for _, subscriber in ipairs(subscribers) do
 		task.spawn(subscriber, preferred)
+	end
+end
+
+local function SetViewport()
+	local Size = game.Workspace.CurrentCamera.ViewportSize
+	for _, subscriber in ipairs(viewSubscribers) do
+		task.spawn(subscriber, Size.X, Size.Y)
 	end
 end
 
@@ -116,5 +141,6 @@ end
 
 DeterminePreferred(UserInputService:GetLastInputType())
 UserInputService.LastInputTypeChanged:Connect(DeterminePreferred)
+game.Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(SetViewport)
 
 return PreferredInput

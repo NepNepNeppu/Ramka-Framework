@@ -32,7 +32,7 @@ end)
         
         execution.executor = executor
         execution.framestep = framestep -- not goal framerate, runservice function
-        execution.frameManager = {delta = 0}
+        execution.frameManager = {elapsed = 0, frames = 0}
         return execution
     end
 
