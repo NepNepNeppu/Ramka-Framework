@@ -9,6 +9,9 @@
         },
         "Ramka": {
           "$path": "src/ReplicatedFirst/Ramka"
+        },
+        "Embeded": {
+          "$path": "src/ReplicatedFirst/Embeded"
         }
       },
   
