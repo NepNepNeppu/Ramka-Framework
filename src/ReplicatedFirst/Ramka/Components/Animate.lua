@@ -83,7 +83,7 @@ function Interpolate(RamkaScheduler, instance, properties, lifetime: number?, ea
     RamkaScheduler:Construct(constructorParam):Heartbeat(function(delta, _, executor)
         elasped += delta
 
-        if instance == nil or instance.Parent == nil or activeInterpolants[instance] == nil or activeInterpolants[instance][indexNum] == nil then
+        if instance == nil or instance.Parent == nil or activeInterpolants[instance] == nil or activeInterpolants[instance][indexNum] == nil or indexNum ~= #activeInterpolants[instance] then
             if type(link.onBreak) == "function" then
                 task.spawn(link.onBreak)
             end

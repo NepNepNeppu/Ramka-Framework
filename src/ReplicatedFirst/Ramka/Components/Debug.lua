@@ -15,6 +15,19 @@ return {
         end
     end,
 
+    SpawnDebugPart = function() : Part
+        local part: Part = Instance.new("Part")
+        part.Name = "DebugPart"
+        part.Size = Vector3.one
+        part.Anchored = true
+        part.Transparency = .5
+        part.Color = Color3.fromRGB(255, 70, 70)
+        part.CanCollide = false
+        part.Parent = workspace
+
+        return part
+    end,
+
     Region3 = function(min, max, thickness: number?)
         local size = max - min
         local x, y, z = size.X / 2, size.Y / 2, size.Z / 2

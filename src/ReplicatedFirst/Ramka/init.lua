@@ -33,7 +33,7 @@ type Schedule = {
 type ConstructorParam = {
     pipeline: string?,
     framerate: number?,
-    name: string?
+    name: string
 }
 
 type KeyframeLoop = {
@@ -219,8 +219,6 @@ local Ramka = {}
         end
     
         started = true
-
-        RamkaScheduler:Init()
     
         return Promise.new(function(resolve)
             -- Init:
@@ -238,6 +236,8 @@ local Ramka = {}
                     )
                 end
             end
+
+            RamkaScheduler:Init()
     
             resolve(Promise.all(promisesStartTasks))
         end):andThen(function()
