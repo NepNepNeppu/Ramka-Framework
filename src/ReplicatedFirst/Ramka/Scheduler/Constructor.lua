@@ -13,6 +13,10 @@ end)
             params = params,
         },Constructor)
 
+        if scheduler:_isPipeline(params.pipeline) == nil then
+            scheduler:_createPipeline(params.pipeline)
+        end
+
         return self
     end
 

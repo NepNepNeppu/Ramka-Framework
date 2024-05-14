@@ -67,6 +67,10 @@ end
 RemoteEvents.__index = RemoteEvents
 RemoteFunctions.__index = RemoteFunctions
 
+    function Networking._getRemoteSignal()
+        return getRemoteSignal("Initial")
+    end
+
     --Creates RemoteEvent
     function Networking.Nudge(nudgeName: string)
         local self = setmetatable({

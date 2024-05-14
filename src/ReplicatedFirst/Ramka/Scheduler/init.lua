@@ -59,6 +59,7 @@ Scheduler.__index = Scheduler
 
     function Scheduler:Init()
         self:_createPipeline("_default")
+        debug.setmemorycategory("Ramka Scheduler ".. (game:GetService("RunService"):IsClient() and "Client" or "Server"))
 
         for i,v in frameLoops do
             game:GetService("RunService")[v]:Connect(function(time, deltaTime)

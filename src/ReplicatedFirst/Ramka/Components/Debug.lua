@@ -20,11 +20,38 @@ return {
         part.Name = "DebugPart"
         part.Size = Vector3.one
         part.Anchored = true
-        part.Transparency = .5
         part.Color = Color3.fromRGB(255, 70, 70)
         part.CanCollide = false
         part.Parent = workspace
 
+        return part
+    end,
+
+    SpawnDebugLine = function(p1 ,p2) : Part
+        local part: Part = Instance.new("Part")
+        part.Name = "DebugVector"
+        part.Anchored = true
+        part.Color = Color3.fromRGB(36, 36, 36)
+        part.CanCollide = false
+        part.Size = Vector3.new(0.2,0.2,(p1 - p2).Magnitude)
+        part.Material = Enum.Material.Neon
+        part.CFrame = CFrame.lookAt(p1, p2) * CFrame.new(0,0,-(p1 - p2).Magnitude/2)
+        part.Parent = workspace
+
+        return part
+    end,
+
+    SpawnDebugVector = function(origin, direction, scale: number?) : Part
+        local part: Part = Instance.new("Part")
+        part.Name = "DebugVector"
+        part.Anchored = true
+        part.Color = Color3.fromRGB(89, 70, 255)
+        part.CanCollide = false
+        part.Size = Vector3.new(0.2,0.2,scale or direction.Magnitude)
+        part.Material = Enum.Material.Neon
+        part.CFrame = CFrame.lookAt(origin, origin + direction) * CFrame.new(0,0,(scale or direction.Magnitude)/2)
+        part.Parent = workspace
+        
         return part
     end,
 

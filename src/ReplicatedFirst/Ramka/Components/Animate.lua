@@ -17,75 +17,112 @@ local function lerp(a, b ,t: number)
         return Color3.new(r,g,b)
     elseif type(a) == "number" then
         return a + (b - a) * t
+    elseif typeof(a) == "UDim" then
+        return UDim.new(lerp(a.Scale, b.Scale, t), lerp(a.Offset, b.Offset, t))
     end
     return a:Lerp(b,t)
 end
 
 local Animate = {}
 local activeInterpolants = {}
+local activeOverrideInterpolants = {}
 
 function Interpolate(RamkaScheduler, instance, properties, lifetime: number?, easeFunction: func?, constructorParam: ConstructorParam?)
+    local activeRamka
     local elasped = 0
     local lifetime = lifetime or 1
-    local link = {
+    local link
+    link = {
         onComplete = function() end,
-        onBreak = function() end
+        onBreak = function() end,
+        Cancel = function()
+            if activeRamka then
+                if not (elasped/lifetime >= 1) then                    
+                    if type(link.onBreak) == "function" then
+                        task.spawn(link.onBreak)
+                    end
+                end
+
+                if type(link._onBreak) == "function" then
+                    task.spawn(link._onBreak)
+                end
+
+                activeRamka.Cancel()
+            end
+        end
     }
+
+    local activeInterpolant = instance
 
     local defaultProperties = {} do -- confirm validity of properties
         for propName, propTarget in properties do
-            local propValue = (instance :: any)[propName]
-
-            if typeof(propTarget) ~= typeof(propValue) then
-                error(
-                    ("bad property %s to Ramka.Interpolate (%s expected, got %s)"):format(
-                    propName,
-                    typeof(propValue),
-                    typeof(propTarget)
-                    ),
-                    2
-                )
+            if instance:IsA("Model") and typeof(propTarget) == "CFrame" then
+                defaultProperties[propName] = instance:GetPivot()
             else
-                defaultProperties[propName] = propValue
+                local propValue = (instance :: any)[propName]
+
+                if typeof(propTarget) ~= typeof(propValue) then
+                    error(
+                        ("bad property %s to Ramka.Interpolate (%s expected, got %s)"):format(
+                        propName,
+                        typeof(propValue),
+                        typeof(propTarget)
+                        ),
+                        2
+                    )
+                else
+                    if typeof(propValue) == "CFrame" then
+                        defaultProperties[propName] = instance:GetPivot()
+                    else
+                        defaultProperties[propName] = propValue
+                    end
+                end
             end
         end     
     end
+    
+    activeOverrideInterpolants[activeInterpolant] = nil
 
     local indexNum do --automatically remove and change values if there is duplicate interpolater        
-        if activeInterpolants[instance] == nil then
-            activeInterpolants[instance] = {}
+        if activeInterpolants[activeInterpolant] == nil then
+            activeInterpolants[activeInterpolant] = {}
         end
 
-        for i,independantProperties in activeInterpolants[instance] do
+        for i,independantProperties in activeInterpolants[activeInterpolant] do
             for propName, _ in independantProperties do
                 if properties[propName] then
-                    activeInterpolants[instance][i][propName] = nil
+                    activeInterpolants[activeInterpolant][i][propName] = nil
                 end
             end
         end
     
-        table.insert(activeInterpolants[instance], properties)
-        indexNum = #activeInterpolants[instance]
+        table.insert(activeInterpolants[activeInterpolant], properties)
+        indexNum = #activeInterpolants[activeInterpolant]
     end
 
     local function endFunction(executor)
         executor.Cancel()
 
-        if activeInterpolants[instance] ~= nil then
-            activeInterpolants[instance][indexNum] = nil
+        if activeInterpolants[activeInterpolant] ~= nil then
+            activeInterpolants[activeInterpolant][indexNum] = nil
 
-            if #activeInterpolants[instance] == 0 then
-                activeInterpolants[instance] = nil
+            if #activeInterpolants[activeInterpolant] == 0 then
+                activeInterpolants[activeInterpolant] = nil
             end
         end
     end
 
-    RamkaScheduler:Construct(constructorParam):Heartbeat(function(delta, _, executor)
+    activeRamka = RamkaScheduler:Construct(constructorParam):Heartbeat(function(delta, _, executor)
         elasped += delta
 
-        if instance == nil or instance.Parent == nil or activeInterpolants[instance] == nil or activeInterpolants[instance][indexNum] == nil or indexNum ~= #activeInterpolants[instance] then
+        if instance == nil or activeInterpolant == nil or activeInterpolants[activeInterpolant] == nil or activeInterpolants[activeInterpolant][indexNum] == nil or indexNum ~= #activeInterpolants[activeInterpolant] then
             if type(link.onBreak) == "function" then
                 task.spawn(link.onBreak)
+            end
+
+            --internal use, mainly for InterpolateModelPivot
+            if type(link._onBreak) == "function" then
+                task.spawn(link._onBreak)
             end
 
             endFunction(executor)
@@ -99,11 +136,19 @@ function Interpolate(RamkaScheduler, instance, properties, lifetime: number?, ea
             end
         end
 
-        for propName, propTarget in activeInterpolants[instance][indexNum] do
-            local propValue = (instance :: any)[propName]
+        for propName, propTarget in properties do
+            if instance:IsA("Model") and typeof(propTarget) == "CFrame" then
+                instance:PivotTo(lerp(defaultProperties[propName], propTarget, interpolant))
+            else          
+                local propValue = (instance :: any)[propName]
 
-            if typeof(propTarget) == typeof(propValue) then
-                instance[propName] = lerp(defaultProperties[propName], propTarget, interpolant)
+                if typeof(propTarget) == typeof(propValue) and defaultProperties[propName] ~= nil then
+                    if typeof(propValue) == "CFrame" then
+                        instance:PivotTo(lerp(defaultProperties[propName], propTarget, interpolant))
+                    else
+                        instance[propName] = lerp(defaultProperties[propName], propTarget, interpolant)
+                    end
+                end
             end
         end
 
@@ -112,12 +157,139 @@ function Interpolate(RamkaScheduler, instance, properties, lifetime: number?, ea
                 task.spawn(link.onComplete)
             end
 
+            if type(link._onComplete) == "function" then
+                task.spawn(link._onComplete)
+            end
+
             endFunction(executor)
         end
     end)
 
     return link
 end
+
+function InterpolateOverride(RamkaScheduler, instance, properties, lifetime: number?, easeFunction: func?, constructorParam: ConstructorParam?)
+    local elasped = 0
+    local lifetime = lifetime or 1
+    local link
+    local activeInterpolant = instance
+
+    link = {
+        onComplete = function() end,
+        onBreak = function() end,
+        Cancel = function()
+            if activeOverrideInterpolants[activeInterpolant].activeRamka then
+                if not (elasped/lifetime >= 1) then                    
+                    if type(link.onBreak) == "function" then
+                        task.spawn(link.onBreak)
+                    end
+                end
+
+                if type(link._onBreak) == "function" then
+                    task.spawn(link._onBreak)
+                end
+
+                activeOverrideInterpolants[activeInterpolant].activeRamka.Cancel()
+            end
+        end
+    }
+
+    local defaultProperties = {} do -- confirm validity of properties
+        for propName, propTarget in properties do
+            if instance:IsA("Model") and typeof(propTarget) == "CFrame" then
+                defaultProperties[propName] = instance:GetPivot()
+            else
+                local propValue = (instance :: any)[propName]
+
+                if typeof(propTarget) ~= typeof(propValue) then
+                    error(
+                        ("bad property %s to Ramka.Interpolate (%s expected, got %s)"):format(
+                        propName,
+                        typeof(propValue),
+                        typeof(propTarget)
+                        ),
+                        2
+                    )
+                else
+                    if typeof(propValue) == "CFrame" then
+                        defaultProperties[propName] = instance:GetPivot()
+                    else
+                        defaultProperties[propName] = propValue
+                    end
+                end
+            end
+        end     
+    end
+    
+    activeInterpolants[activeInterpolant]  = nil
+    if activeOverrideInterpolants[activeInterpolant] then
+        activeOverrideInterpolants[activeInterpolant].activeRamka.Cancel()
+    end
+
+    activeOverrideInterpolants[activeInterpolant] = {}
+
+    local function endFunction(executor)
+        executor.Cancel()
+        activeOverrideInterpolants[activeInterpolant] = nil
+    end
+
+    activeOverrideInterpolants[activeInterpolant].activeRamka = RamkaScheduler:Construct(constructorParam):Heartbeat(function(delta, _, executor)
+        elasped += delta
+
+        if instance == nil or activeInterpolant == nil or activeOverrideInterpolants[activeInterpolant] == nil then
+            if type(link.onBreak) == "function" then
+                task.spawn(link.onBreak)
+            end
+
+            --internal use, mainly for InterpolateModelPivot
+            if type(link._onBreak) == "function" then
+                task.spawn(link._onBreak)
+            end
+
+            endFunction(executor)
+            return
+        end
+        
+        local interpolant do
+            interpolant = math.clamp(elasped/lifetime,0,1)
+            if easeFunction then
+                interpolant = easeFunction(interpolant)
+            end
+        end
+
+        for propName, propTarget in properties do
+            if instance:IsA("Model") and typeof(propTarget) == "CFrame" then
+                instance:PivotTo(lerp(defaultProperties[propName], propTarget, interpolant))
+            else          
+                local propValue = (instance :: any)[propName]
+
+                if typeof(propTarget) == typeof(propValue) and defaultProperties[propName] ~= nil then
+                    if typeof(propValue) == "CFrame" then
+                        instance:PivotTo(lerp(defaultProperties[propName], propTarget, interpolant))
+                    else
+                        instance[propName] = lerp(defaultProperties[propName], propTarget, interpolant)
+                    end
+                end
+            end
+        end
+
+        if elasped/lifetime >= 1 then
+            if type(link.onComplete) == "function" then
+                task.spawn(link.onComplete)
+            end
+
+            if type(link._onComplete) == "function" then
+                task.spawn(link._onComplete)
+            end
+
+            endFunction(executor)
+        end
+    end)
+
+    return link
+end
+
+
 
 function Keyframe(RamkaScheduler, loopTime: number, keyframes: {[number]: func}, keyframeParams: KeyframeLoop?, constructorParam: KeyframeLoop?)
     local activeRamka
@@ -252,6 +424,31 @@ function Animate.Get(RamkaScheduler)
         ]]
         Interpolate = function(instance, properties, lifetime: number?, easeFunction: func?, constructorParam: ConstructorParam?)
             return Interpolate(RamkaScheduler, instance, properties, lifetime, easeFunction, constructorParam)
+        end,
+
+        --Same as Interpolate, however if there is interpolate already running it will override it
+        InterpolateWithPriority = function(instance, properties, lifetime: number?, easeFunction: func?, constructorParam: ConstructorParam?)
+            return InterpolateOverride(RamkaScheduler, instance, properties, lifetime, easeFunction, constructorParam)
+        end,
+
+        InterpolateModelPivot = function(model, endPivot, lifetime: number?, easeFunction: func?, constructorParam: ConstructorParam?)
+            -- local CFrameValue = Instance.new("CFrameValue")
+            -- CFrameValue.Value = startPivot
+
+            -- local InterpolateData = InterpolateOverride(RamkaScheduler, CFrameValue, {Value = endPivot}, lifetime, easeFunction, constructorParam)
+            -- local finalCFrame = CFrameValue:GetPropertyChangedSignal("Value"):Connect(function()
+            --     model:PivotTo(CFrameValue.Value)
+            -- end)
+
+            -- local function Break()
+            --     finalCFrame:Disconnect()
+            --     CFrameValue:Destroy()
+            -- end
+            
+            -- InterpolateData._onBreak = Break
+            -- InterpolateData._onComplete = Break
+
+            return InterpolateOverride(RamkaScheduler, model, {CFrame = endPivot}, lifetime, easeFunction, constructorParam)
         end,
 
         --[[

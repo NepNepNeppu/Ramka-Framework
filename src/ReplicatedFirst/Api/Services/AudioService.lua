@@ -55,7 +55,7 @@ AudioService.specialSound = function(Sound: Sound | number,SoundGroup)
     if SoundGroup then
         self.instance.SoundGroup = SoundGroup
     end
-    self.instance.Name = self.customName or self.instance.Name
+    -- self.instance.Name = self.instance.Name
 
     return self
 end

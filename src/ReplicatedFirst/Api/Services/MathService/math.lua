@@ -8,8 +8,15 @@ local c2 = c1 * 1.525
 local c3 = c1 + 1
 local c4 = (2 * PI) / 3
 local c5 = (2 * PI) / 4.5
-
+local rand = math.random
+local max = math.max
+local min = math.min
 local clamp = math.clamp
+local abs = math.abs
+local huge = math.huge
+local round = math.round
+local acos = math.acos
+local floor = math.floor
 
 local bounceOut = function(x)
 	local n1 = 7.5625
@@ -48,6 +55,109 @@ math.vector = {
 		return newVector
 	end,
 
+	--https://www.desmos.com/calculator/mwccmeuqli
+	vect2SquareIntersection = function(point, radius)
+		local Pv2 = Vector2.new(point.X,point.Z)
+		local Ov2 = Vector2.new(radius,radius)
+		local box = Pv2/max(abs(Pv2.X/Ov2.X), abs(Pv2.Y/Ov2.Y))
+		return Vector3.new(box.X, 0, box.Y)
+	end,
+
+	pointAbovePlane = function(point, planeNormal, planeOrigin)
+        return (point - planeOrigin):Dot(planeNormal) > 0
+    end,
+
+	setMag = function(vec, mag)
+		return vec.Unit * mag
+	end,
+
+	min = function(vec, min)
+		return Vector3.new(vec.X > min and min or vec.X, vec.Y > min and min or vec.Y, vec.Z > min and min or vec.Z)
+	end,
+
+	max = function(vec, max)
+		return Vector3.new(vec.X < max and max or vec.X, vec.Y < max and max or vec.Y, vec.Z < max and max or vec.Z)
+	end,
+
+	clamp = function(vec, min, max)
+		return Vector3.new(clamp(vec.X, min, max), clamp(vec.Y, min, max), clamp(vec.Z, min, max))
+	end,
+
+	assignAxis = function(vec, axis: {["X"]: number?,["Y"]: number?,["Z"]: number?})
+		return Vector3.new(axis.X or vec.X, axis.Y or vec.Y, axis.Z or vec.Z)
+	end,
+
+	--Random Interpolation
+	randomLinearPoint = function(vec1, vec2)
+		return vec1:Lerp(vec2, rand())
+	end,
+
+	--Random point defined by min & max positions
+	randomPointInRegion = function(min, max)
+		local mid = (min + max) / 2 
+		local sx, sy, sz = abs(min.X - max.X), abs(min.Y - max.Y), abs(min.Z - max.Z)
+
+		local x = math.compute.randomNumberBetween(-sx/2, sx/2)
+		local y = math.compute.randomNumberBetween(-sy/2, sy/2)
+		local z = math.compute.randomNumberBetween(-sz/2, sz/2)
+
+		return Vector3.new(x, y, z) + mid
+	end,
+
+	minMaxClamp = function(vec, vecMin, vecMax, margin)
+		local vector = vec
+
+		for _,axis in {"X","Y","Z"} do		
+			if vector[axis] < vecMin[axis] then
+				vector = math.vector.assignAxis(vector, {[axis] = vecMin[axis] - margin})
+			elseif vector[axis] > vecMax[axis] then
+				vector = math.vector.assignAxis(vector, {[axis] = vecMax[axis] + margin})
+			end
+		end
+
+		return vector
+	end,
+
+	isInRegion = function(vec, min, max)
+		local inRange = math.compute.numberInRange
+
+		if not inRange(vec.X, min.X, max.X) then
+			return false
+		end
+
+		if not inRange(vec.Y, min.Y, max.Y) then
+			return false
+		end
+
+		if not inRange(vec.Z, min.Z, max.Z) then
+			return false
+		end
+
+		return true
+	end,
+
+	--clamp vector to boundaries
+	minMaxFlip = function(vec, vecMin, vecMax, margin)
+		local vector = vec
+
+		for _,axis in {"X","Y","Z"} do		
+			if vector[axis] < vecMin[axis] then
+				vector = math.vector.assignAxis(vector, {[axis] = vecMax[axis] -margin})
+			elseif vector[axis] > vecMax[axis] then
+				vector = math.vector.assignAxis(vector, {[axis] = vecMin[axis] +margin})
+			end
+		end
+
+		return vector
+	end,
+
+	randomVector3 = function()
+		local a = 2*PI*rand()
+		local x = 2*rand() - 1
+		local r = sqrt(1 - x*x)
+		local y, z = r*cos(a), r*sin(a)
+		return Vector3.new(x, y, z)
+	end,
 	-- computeLargestVector(Vec3(1,1,1), Vec3(1,-1,3)) -> Vec3(1,1,3)
 	computeLargestVector = function(vec1, vec2)
 		local newVector = Vector3.new(vec1.X, vec1.Y, vec1.Z)
@@ -65,11 +175,20 @@ math.vector = {
 		end
 
 		return newVector
-	end
+	end,
+
+	--in radians
+	angleBetween = function(vec1, vec2)
+		return acos(vec1.Unit:Dot(vec2.Unit))
+	end,
 }
 
 math.compute = {
-    -- f(1) = 0, f(0) = z
+	round = function(x, mult)
+		return floor((x / mult) + 0.5) * mult
+	end,
+
+	-- f(1) = 0, f(0) = z
     -- returns number
     flipNumber = function(number: number,invrnNum: number?): number
         return -number + (invrnNum or 1)
@@ -102,12 +221,37 @@ math.compute = {
         return dataComp[1], dataComp[#dataComp], dataComp
     end,
 
+	getNearestNumber = function(number, ...)
+		local n = huge
+		for i,num in {...} do
+			if abs(num-number) < abs(n-number) then
+				n = num
+			end
+		end
+		return n
+	end,
+
+	numberInRange = function(num, min, max)
+		local between = num >= min and num <= max
+		local fuzzyeq = math.compute.fuzzyEq(num, min) or math.compute.fuzzyEq(num, max)
+		return between or fuzzyeq
+	end,
+
+	fuzzyEq = function(a, b, EPSILON)
+		local EPSILON = EPSILON or 1e-4
+		return a == b or abs(a - b) <= (abs(a) + 1) * EPSILON
+	end,
+
+	randomNumberBetween = function(num1, num2)
+		return math.compute.lerp(num1, num2, rand())
+	end,
+
     truncateToNearest = function(number: number, nearest: number): number
         return number - number % nearest
     end,
 
     roundToNearestMultiple = function(number: number, mult: number): number
-        return math.round(number / mult) * mult
+        return round(number / mult) * mult
     end,
 
     smoothStep = function(start: number, goal: number, t: number): number
@@ -137,7 +281,7 @@ math.compute = {
 		local scaledValue = (value - minIn) / (maxIn - minIn) * (maxOut - minOut) + minOut
 		
 		return clamp(scaledValue, minOut, maxOut) 
-	end
+	end,
 }
 
 math.rotations = {

@@ -142,7 +142,9 @@ local Ramka = {}
             if WrongMatchType then warn(WrongMatchType) return end
         end
         
-        if not File:IsA("ModuleScript") and (Match == nil or File.Name:match(Match)) then
+        if not File:IsA("ModuleScript") or (Match ~= nil and File.Name:match(Match) == nil) then
+
+        else
             local addedTasks = {}
             addModule(addedTasks, File)
             return addedTasks[1]
@@ -167,10 +169,10 @@ local Ramka = {}
 
         local addedTasks = {}
         for _, v in Files:GetChildren() do
-            if not v:IsA("ModuleScript") and (Match == nil or v.Name:match(Match)) then
+            if not v:IsA("ModuleScript") or (Match ~= nil and v.Name:match(Match) == nil) then
                 continue
-            end
-             
+            end          
+                         
             addModule(addedTasks, v)
         end
         return addedTasks
@@ -194,9 +196,9 @@ local Ramka = {}
 
         local addedTasks = {}
         for _, v in Files:GetDescendants() do
-            if not v:IsA("ModuleScript") and (Match == nil or v.Name:match(Match)) then
+            if not v:IsA("ModuleScript") or (Match ~= nil and v.Name:match(Match) == nil) then
                 continue
-            end
+            end  
 
             addModule(addedTasks, v)
         end
@@ -219,7 +221,9 @@ local Ramka = {}
         end
     
         started = true
-    
+
+        debug.setmemorycategory("RAMKA ".. (game:GetService("RunService"):IsClient() and "CLIENT" or "SERVER"))
+
         return Promise.new(function(resolve)
             -- Init:
             local promisesStartTasks = {}
@@ -229,7 +233,7 @@ local Ramka = {}
                     table.insert(
                         promisesStartTasks,
                         Promise.new(function(r)
-                            debug.setmemorycategory(ramkatask.Name)
+                            debug.setmemorycategory("[Ramka Init] - "..ramkatask.Name)
                             ramkatask:RamkaInit()
                             r()
                         end)
@@ -246,7 +250,7 @@ local Ramka = {}
             for _, ramkatask in tasks do
                 if ramkatask.RamkaStart and type(ramkatask.RamkaStart) == "function" then
                     task.spawn(function()
-                        debug.setmemorycategory(ramkatask.Name)
+                        debug.setmemorycategory("[Ramka Start] - "..ramkatask.Name)
                         ramkatask:RamkaStart()
                     end)
                 end
@@ -298,6 +302,9 @@ local Ramka = {}
 function Ramka.Construct(constructorParam: ConstructorParam)
     return RamkaScheduler:Construct(constructorParam)
 end
+
+--Access to Scheduler functionality
+Ramka.Scheduler = RamkaScheduler
 
 --Access to internal OOP Classes
 Ramka.Class = game.ReplicatedFirst.Api.Class

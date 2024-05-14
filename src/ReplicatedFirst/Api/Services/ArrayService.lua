@@ -9,4 +9,12 @@ ArrayService.invert = function(tbl: table)
     return tbl
 end
 
+ArrayService.swapIV = function(tbl)
+    local oldTable = table.clone(tbl)
+    for i,v in oldTable do
+        tbl[v] = i
+    end
+    return tbl
+end
+
 return ArrayService
