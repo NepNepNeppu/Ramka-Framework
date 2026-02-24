@@ -1,2 +1,2 @@
-# Ramka Framework
- My game framework
+# Superseded by RamkaX
+https://github.com/NepNepNeppu/RamkaX
